@@ -1,0 +1,818 @@
+<?php
+/**
+ * mail_service - Robust and Flexible PHPMailer Wrapper
+ * 
+ * Copyright (C) 2021 Lars Grove Mortensen. All rights reserved.
+ * 
+ * mail_service is a standalone PHP class designed for reliable and efficient 
+ * email handling using PHPMailer. It provides an easy-to-use interface for 
+ * SMTP authentication, attachments, HTML emails, and multi-recipient support.
+ * 
+ * Built for performance and flexibility, mail_service simplifies email sending 
+ * while ensuring robust error handling and compatibility with PHP 7.4+.
+ * 
+ * mail_service is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * mail_service is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with mail_service. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+//Import the PHPMailer class into the global namespace
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+use PHPMailer\PHPMailer\SMTP;
+
+
+
+class mail_service {
+
+
+    /**
+     * Set the charset to be used in the body of the e-mail
+     *
+     * Default: 'UTF-8'
+     * 
+     * @var string
+     */
+
+	public $charset = 'UTF-8';
+
+
+    /**
+     * Send the email via SMTP?
+     * Default: True
+     * 
+     * @var bool
+     */
+
+	public $smtp = True;
+
+
+    /**
+     * Enable SMTP-debugging?
+     * 1 (off - for production use)
+     * 2 (client messages)
+     * 3 (client and server messages)
+     * 
+     * Default: 1 (for prod), 3 (for dev)
+     * 
+     * @var int
+     */
+
+	public $smtp_debugging = 1;
+
+
+    /**
+     * The hostname of the mail server for sending via SMTP
+     * Default: ''
+     * 
+     * @var string
+     */
+
+	public $smtp_host = '';
+
+
+    /**
+     * The SMTP port number
+     * (likely to be 25, 465 or 587)
+     *
+     * Default: 25
+     * 
+     * @var int|null
+     */
+
+	public $smtp_port = 25;
+
+
+    /**
+     * Use SMTP authentication?
+     * Default: True
+     * 
+     * @var bool
+     */
+
+	public $smtp_auth = True;
+
+
+    /**
+     * Username to use for SMTP authentication
+     * Default: ''
+     * 
+     * @var string
+     */
+
+	public $smtp_username = '';
+
+
+    /**
+     * Password to use for SMTP authentication
+     * Default: ''
+     * 
+     * @var string
+     */
+
+	public $smtp_password = '';
+
+
+    /**
+     * Set the email-address the message is to be sent from
+     * Default: ''
+     * 
+     * @var string
+     */
+
+	public $from_email = '';
+
+
+    /**
+     * Set the name the message is to be sent from
+     * (i.e. 'Peter Jensen')
+     *
+     * Default: ''
+     * 
+     * @var string
+     */
+
+	public $from_name = '';
+
+
+    /**
+     * Set alternative reply-to address
+     * Default: null
+     * 
+     * @var string|null
+     */
+
+	public $replyto_email = null;
+
+
+    /**
+     * Set alternative reply-to name
+     * (i.e. 'Peter Jensen')
+     *
+     * Default: null
+     * 
+     * @var string|null
+     */
+
+	public $replyto_name = null;
+
+
+    /**
+     * Set the recipient(s) of the message
+     * We use ; do separate recipients, and , to seperate email-address and name.
+     * If a name is not specified for the recipient, the email-address will be used for that recipient.
+     *
+     * Example: "john@doe.com,John Doe;peter@jensen.dk,Peter Jensen;noname@example.com";
+     *
+     * Default: null
+     * 
+     * @var string
+     */
+
+	public $recipients = null;
+
+
+    /**
+     * Send individual emails til each recipient?
+     * If false: There will be sent 1 email with multiple recipients
+     * If true: There will be sent multiple emails with 1 recipient per email
+     * 
+     * Default: False
+     * 
+     * @var bool
+     */
+
+	public $send_individual = False;
+
+
+    /**
+     * Set the subject line
+     *
+     * Default: ''
+     * 
+     * @var string
+     */
+
+	public $subject = '';
+
+
+    /**
+     * Use HTML-content in the email-body?
+     * Default: False
+     * 
+     * @var bool
+     */
+
+	public $html = False;
+	
+	
+    /**
+     * Set the body of the e-mail (plain-text or HTML, depending on whether you are sending HTML-email or not) 
+     * Note: If we send a non-HTML-email then this is the only body of the email.
+     *
+     * Default: ''
+     * 
+     * @var string|null
+     */
+
+	public $body = '';
+	
+	
+    /**
+     * Set the plain-text body when sending a HTML-body-email
+     * Note: This is only used when sending HTML-emails where we specify $body rather than $msgHTML (because the latter will create the plain-text version automatically).
+     *
+     * Default: ''
+     * 
+     * @var string|null
+     */
+
+	public $body_plaintext = '';
+	
+
+    /**
+     * Use PHPMailer's msgHTML() to create the email-body?
+     * 
+     * Do you want to read an HTML message body from an external file, convert referenced images to embedded,
+     * and automatically convert HTML into a basic plain-text alternative body?
+     * 
+     * Default: False
+     * 
+     * @var bool
+     */
+
+	public $msgHTML = False;
+	
+	
+    /**
+     * If we use an external HTML-file as a template for the email-body, we need to specify the path
+     *
+     * Default: null
+     * 
+     * @var string|null
+     */
+
+	public $html_template_file = null;
+	
+	
+    /**
+     * Set the absolute path to a base directory to prepend to relative paths to images
+     *
+     * $basedir is prepended when handling relative URLs, e.g. <img src="/images/a.png"> and must not be empty
+	 * will look for an image file in $basedir/images/a.png and convert it to inline.
+	 * If you don't provide a $basedir, relative paths will be left untouched (and thus probably break in email)
+	 * Converts data-uri images into embedded attachments.
+     *
+     * Default: ''
+     * 
+     * @var string
+     */
+
+	public $image_basedir = '';
+
+
+    /**
+     * Attachments from local filesystem path (i.e. 'images/phpmailer_mini.png')
+     * (must be array, as there can be multiple attachments)
+     *
+     * Example: Array('images/phpmailer_mini.png', 'documents/invoice.pdf', 'images/logo.png')
+     *
+     * NOTE: The $path may be a relative one (from your script, not the PHPMailer class) or a full path to the file you want to attach.
+     *
+     * NOTE: This functionality can be expanded at a future date, as there are actually 3 additional params that can be set if needed. Read more: https://github.com/PHPMailer/PHPMailer/wiki/Tutorial
+     *
+     * Default: null
+     * 
+     * @var Array(string)
+     */
+
+	public $attachments_local_ary = null;
+
+
+    /**
+     * Attachments from URL (i.e. 'https://www.example.com/docs/readme.pdf')
+     * (must be array, as there can be multiple recipients)
+     *
+     * Example: Array('https://www.example.com/documents/invoice.pdf', 'https://www.example.com/images/logo.png')
+     *
+     * NOTE: This functionality can be expanded at a future date, as there are actually 3 additional params that can be set if needed. Read more: https://github.com/PHPMailer/PHPMailer/wiki/Tutorial
+     *
+     * Default: null
+     * 
+     * @var Array(string)
+     */
+
+	public $attachments_url_ary = null;
+
+
+
+
+
+
+
+
+	/**
+	 * Constructor for the mail_service class.
+	 *
+	 * This method initializes the object with configuration values passed as an associative array.
+	 * It dynamically assigns values to the class properties if they exist.
+	 *
+	 * @param array $config Associative array containing configuration settings.
+	 *
+	 * Example usage:
+	 * ```php
+	 * $mail = new mail_service([
+	 *     'smtp' => true,
+	 *     'smtp_host' => 'smtp.example.com',
+	 *     'smtp_port' => 587,
+	 *     'smtp_auth' => true,
+	 *     'smtp_username' => 'user@example.com',
+	 *     'smtp_password' => 'securepassword',
+	 *     'from_email' => 'noreply@example.com',
+	 *     'from_name' => 'Example Sender',
+	 *     'recipients' => 'john.doe@example.com,John Doe;jane.doe@example.com,Jane Doe',
+	 *     'subject' => 'Test Email',
+	 *     'body' => 'This is a test email.',
+	 *     'html' => true
+	 * ]);
+	 * ```
+	 */
+	function __construct(array $config = []) {
+		
+		// Loop through each provided configuration key-value pair
+		foreach ($config as $key => $value) {
+			
+			// Assign value to the property if it exists in the class
+			if (property_exists($this, $key)) {
+				$this->$key = $value;
+			}
+		}
+	}
+	
+	
+	
+
+
+	/**
+	 * Sends an email using PHPMailer.
+	 *
+	 * This method configures and sends an email based on the class properties.
+	 * Supports SMTP authentication, attachments, HTML email, and individual recipient handling.
+	 *
+	 * PHPMailer tutorial: https://github.com/PHPMailer/PHPMailer/wiki/Tutorial
+	 *
+	 * @return array Returns an associative array with:
+	 *               - "response" (int): HTTP-like response code (200 = success, 400 = bad request, 500 = server error).
+	 *               - "msg" (array): List of successfully sent emails.
+	 *               - "error_msg" (array): List of encountered errors during sending.
+	 *               - "disqualified_recipients" (array): List of invalid or duplicate recipients that were skipped.
+	 */
+	function send() {
+
+		// Create a new PHPMailer instance
+		// Passing `true` enables PHPMailer exceptions
+		$mail = new PHPMailer(true);
+		
+		
+		// Initialize the log structure to track email sending results.
+		$log = [
+			"response" => 0, // Default response code (will be updated later).
+			"msg" => [], // Successfully sent emails.
+			"error_msg" => [], // Errors encountered during sending.
+			"disqualified_recipients" => [] // List of invalid email addresses that failed validation and were not included.
+		];
+		
+		
+		// Ensure that if SMTP is enabled, the required credentials are also provided.
+		// If any of the necessary values (host, username, password) are missing, abort early.
+		if ($this->smtp && (empty($this->smtp_host) || empty($this->smtp_username) || empty($this->smtp_password))) {
+			$log["response"] = 400; // Bad request: Missing SMTP configuration.
+			$log["error_msg"][] = "SMTP is enabled, but the necessary credentials are missing.";
+			return $log;
+		}
+		
+		
+		// If a value was set for the charset, set it...
+		if ($this->charset)
+			$mail->CharSet = $this->charset;
+
+
+
+
+		// If SMTP is enabled, configure PHPMailer to use SMTP for sending emails
+		if ($this->smtp){
+		
+			// Tell PHPMailer to use SMTP
+			$mail->isSMTP();
+			
+			/* 
+			// Enable SMTP debugging			
+			$mail->SMTPDebug = in_array($this->smtp_debugging, [
+				SMTP::DEBUG_OFF,
+				SMTP::DEBUG_CLIENT,
+				SMTP::DEBUG_SERVER
+			]) ? $this->smtp_debugging : SMTP::DEBUG_OFF;
+			 */
+			
+			// Enable SMTP debugging			
+			if ($this->smtp_debugging === 1) {
+				$mail->SMTPDebug = SMTP::DEBUG_OFF;
+				
+			}elseif ($this->smtp_debugging === 2) {
+				$mail->SMTPDebug = SMTP::DEBUG_CLIENT;
+				
+			}elseif ($this->smtp_debugging === 3) {
+				$mail->SMTPDebug = SMTP::DEBUG_SERVER;
+			}
+			
+			
+			
+			// Set the hostname of the mail server
+			$mail->Host = $this->smtp_host;
+			
+			// Set the SMTP port number - likely to be 25, 465 or 587
+			$mail->Port = $this->smtp_port;
+			
+			// Set encryption method based on the SMTP port
+			if (in_array($this->smtp_port, [465, 587])) {
+				$mail->SMTPSecure = ($this->smtp_port === 465) ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
+			}			
+			
+			// Whether to use SMTP authentication
+			$mail->SMTPAuth = $this->smtp_auth;
+			
+			// If we are sending individual emails to each recipient (as opposed to 1 email to multiple recipients)
+			// we will keep the SMTP alive (SMTP connection will not close after each email sent), which reduces SMTP overhead
+			if ($this->send_individual)
+				$mail->SMTPKeepAlive = true;
+			
+			
+			// Username to use for SMTP authentication
+			$mail->Username = $this->smtp_username;
+			
+			// Password to use for SMTP authentication
+			$mail->Password = $this->smtp_password;
+
+
+			//SMTP XCLIENT attributes can be passed with setSMTPXclientAttribute method
+			//$mail->setSMTPXclientAttribute('LOGIN', 'yourname@example.com');
+			//$mail->setSMTPXclientAttribute('ADDR', '10.10.10.10');
+			//$mail->setSMTPXclientAttribute('HELO', 'test.example.com');
+
+		}
+		
+		
+		// Set who the message is to be sent from
+		if (!filter_var($this->from_email, FILTER_VALIDATE_EMAIL)) {
+			$log["error_msg"][] = "Invalid sender email: " . htmlspecialchars($this->from_email);
+			return $log;
+		}
+		$mail->setFrom($this->from_email, $this->from_name);
+		
+		
+		// Set an alternative reply-to address
+		if (!empty($this->replyto_email) && filter_var($this->replyto_email, FILTER_VALIDATE_EMAIL)) {
+			$mail->addReplyTo($this->replyto_email, $this->replyto_name);
+		} elseif (!empty($this->replyto_email)) {
+			$log["error_msg"][] = "Invalid reply-to email: " . htmlspecialchars($this->replyto_email);
+		}
+		
+		
+		// Set the subject line
+		$mail->Subject = $this->subject;
+		
+		
+		
+		if ($this->html){
+		
+			// A low-key practical example of using templates: https://stackoverflow.com/a/78638791
+			
+			
+			
+			if ($this->msgHTML) {
+				
+				/**
+				 * Create a message body from an HTML string.
+				 * Automatically inlines images and creates a plain-text version by converting the HTML,
+				 * overwriting any existing values in Body and AltBody.
+				 * Do not source $message content from user input!
+				 * $basedir is prepended when handling relative URLs, e.g. <img src="/images/a.png"> and must not be empty
+				 * will look for an image file in $basedir/images/a.png and convert it to inline.
+				 * If you don't provide a $basedir, relative paths will be left untouched (and thus probably break in email)
+				 * Converts data-uri images into embedded attachments.
+				 * If you don't want to apply these transformations to your HTML, just set Body and AltBody directly.
+				 *
+				 * msgHTML($message, $basedir = '', $advanced = false)
+				 *
+				 * @param string        $message  HTML message string
+				 * @param string        $basedir  Absolute path to a base directory to prepend to relative paths to images
+				 * @param bool|callable $advanced Whether to use the internal HTML to text converter
+				 *                                or your own custom converter
+				 * @return string The transformed message body
+				 *
+				 * @throws Exception
+				 *
+				 * @see PHPMailer::html2text()
+				 */
+				
+				// Check if an external HTML template file is specified
+				if ($this->html_template_file){					
+					// Read an HTML message body from an external file, convert referenced images to embedded,
+					// convert HTML into a basic plain-text alternative body
+					
+					// $mail->msgHTML(file_get_contents($this->html_template_file), $this->image_basedir);
+					
+					
+					// Check if the HTML template file exists and is readable before attempting to load it
+					if (!is_readable($this->html_template_file)) {
+						// Log an error message if the file is missing or lacks read permissions
+						$log["error_msg"][] = "HTML template file is missing or not readable: " . htmlspecialchars($this->html_template_file);
+						
+						// Return the log to prevent further execution with an invalid file
+						return $log;
+					}				
+					
+					// Attempt to load the HTML template file
+					$htmlContent = file_get_contents($this->html_template_file);
+					
+					// Check if file_get_contents() failed (returns false on failure)
+					if ($htmlContent === false) {
+						
+						// Log the error message with the problematic file path
+						$log["error_msg"][] = "Error loading HTML template: " . htmlspecialchars($this->html_template_file);
+						
+						// Return the log array to prevent sending an email with an empty or missing template
+						return $log;
+					}
+					
+					// Use PHPMailer's msgHTML() to set the email body with inline image handling
+					$mail->msgHTML($htmlContent, $this->image_basedir);
+					
+				}else{
+					// Use the provided HTML body content instead of loading from a file
+					// Also applies inline image handling using the specified base directory
+					$mail->msgHTML($this->body, $this->image_basedir);
+				}
+				
+				
+			}else{
+			
+			
+				// We are sending a HTML-email but not using the msgHTML() function
+				
+				// Read an HTML message body from an external file/template?
+				if ($this->html_template_file){
+					$mail->Body = file_get_contents($this->html_template_file);
+					
+				}else{
+				
+					// We are not reading an external file/template, but specifying it directly
+					$mail->Body = $this->body;
+				
+					// Set the plain-text body
+					$mail->AltBody = $this->body_plaintext;
+				}
+			
+			}
+		
+		}else{		
+		
+			// We are sending a plain-text email
+			$mail->Body = $this->body;
+			
+		}
+		
+		
+		
+
+		// Attach files from local path/disc
+		if (!empty($this->attachments_local_ary) && is_array($this->attachments_local_ary)) {
+			foreach ($this->attachments_local_ary as $attachment) {
+				if (file_exists($attachment) && is_readable($attachment)) {
+					$mail->addAttachment($attachment);
+					$log["msg"][] = "Attached file: " . htmlspecialchars($attachment);
+				} else {
+					$log["error_msg"][] = "Attachment not found or unreadable: " . htmlspecialchars($attachment);
+				}
+			}
+		}	
+		
+
+		// Attach files from URL
+		// If you want to use a remote URL for getting your attachment-content (for example getting PDF content from a remote URL)
+		// The $filename parameter is required as it's used to provide a filename for the string data at the receiver end.		
+		if (!empty($this->attachments_url_ary) && is_array($this->attachments_url_ary)){
+			foreach ($this->attachments_url_ary as $attachment_url) {
+				
+				// Querystrings in the URL can potentially cause trouble
+				if (strpos($attachment_url, "?") !== false) {					
+					$attachment_url_w_query = explode("?", $attachment_url);
+					$filename = basename($attachment_url_w_query[0]);
+				} else {
+					$filename = basename($attachment_url);
+				}
+
+				// Attempt to fetch the file content
+				$content = @file_get_contents($attachment_url);
+				if ($content === false) {
+					$log["error_msg"][] = "Could not fetch attachment: " . htmlspecialchars($attachment_url);
+				} else {
+					$mail->addStringAttachment($content, $filename);
+					$log["msg"][] = "Attached file from URL: " . htmlspecialchars($attachment_url);
+				}
+			}
+		}
+		
+
+
+
+		// Set who the message is to be sent to
+		if (!empty($this->recipients)){
+			
+			// Convert the recipient string into an array of valid email/name pairs
+			$recipientLog = $this->convertRecipientStringToArray($this->recipients);
+			
+			// Store disqualified recipients in the log
+			$log["disqualified_recipients"] = $recipientLog["disqualified_recipients"];
+			
+			// Extract the valid recipients from the conversion result
+			$recipients_ary = $recipientLog["result"];
+			
+			// Free up memory by unsetting recipientLog
+			unset($recipientLog);
+			
+			
+			// If emails should be sent individually to each recipient
+			if ($this->send_individual){
+			
+				// Loop through each recipient and send a separate email
+				foreach ($recipients_ary as $recipient) {
+					
+					// If no name is specified, use the email as the recipient name
+					if (!isset($recipient[1]))
+						$recipient[1] = $recipient[0];
+					
+					
+					try {
+						$mail->addAddress($recipient[0], $recipient[1]);
+					} catch (Exception $e) {
+						$log["error_msg"][] = "Invalid email address skipped: " . htmlspecialchars($recipient[0]);
+						continue;
+					}
+					/* 
+					$mail->replaceCustomHeader(
+						'List-Unsubscribe',
+						'<mailto:unsubscribes@example.com>, <https://www.example.com/unsubscribe.php?email=' .
+						rawurlencode($row['email']) . '>'
+					);
+					*/
+					try {
+						$mail->send();
+						$log["msg"][] = "Sent email to: " . htmlspecialchars($recipient[1]) . " (" . htmlspecialchars($recipient[0]) . ")";
+
+						/* 	
+						//Mark it as sent in the DB
+						mysqli_query(
+							$mysql,
+							"UPDATE mailinglist SET sent = TRUE WHERE email = '" .
+							mysqli_real_escape_string($mysql, $row['email']) . "'"
+						);
+						*/
+					} catch (Exception $e) {
+						// $log["error_msg"][] = "Failed to send email to: " . htmlspecialchars($recipient[0]) . " (" . $mail->ErrorInfo . ")";
+
+						// Changed to include SMTP-errortype and HTTP response code
+						$log["error_msg"][] = sprintf(
+							"Failed [%s]: %s (%s)", 
+							$mail->ErrorInfo, 
+							htmlspecialchars($recipient[0]), 
+							htmlspecialchars($recipient[1] ?? '')
+						);
+						
+						//Reset the connection to abort sending this message
+						//The loop will continue trying to send to the rest of the list
+						$mail->getSMTPInstance()->reset();
+					}
+					//Clear all addresses and attachments for the next iteration
+					$mail->clearAddresses();
+					$mail->clearAttachments();
+				}
+				
+				if (!empty($log["error_msg"])){
+					$log["response"] = 500;
+					// var_dump($log);
+					// return $log;
+				}else{
+					$log["response"] = 200;
+				}
+			
+			
+			}else{
+			
+				foreach ($recipients_ary as $recipient) {
+					
+					if (!isset($recipient[1]))
+						$recipient[1] = $recipient[0];
+					
+					try {						
+						$mail->addAddress($recipient[0], $recipient[1]);
+					} catch (Exception $e) {
+						$log["error_msg"][] = "Invalid email address skipped: " . htmlspecialchars($recipient[0]);
+						continue;
+					}					
+				}
+				
+				// Send the message, check for errors
+				if (!$mail->send()) {					
+					$log["response"] = 500;
+					$log["error_msg"][] = "Failed to send email.";
+					$log["error"] = $mail->ErrorInfo;
+
+				} else {
+					$log["response"] = 200;
+				}
+				
+			}
+		
+		}else{
+			
+			$log["response"] = 400;
+			$log["error_msg"][] = "No valid recipients found.";
+			
+			
+		}
+
+		
+		// If SMTP is enabled, close the SMTP connection to free up resources
+		if ($this->smtp) {
+			$mail->SmtpClose();
+		}
+
+		// Return the log array containing response code, messages, and errors
+		return $log;
+		
+	}
+
+	
+	
+	
+	/**
+	 * Converts a recipient string into an array of valid email/name pairs.
+	 *
+	 * The function takes a string of recipients separated by semicolons (`;`),
+	 * where each recipient is an email address followed by an optional name,
+	 * separated by a comma (`,`). It validates the email format and filters
+	 * out duplicates.
+	 *
+	 * @param string $string The recipient string in the format: "email,name;email2,name2"
+	 * @return array An associative array with:
+	 *               - "result": A list of valid email/name pairs.
+	 *               - "disqualified_recipients": A list of invalid or duplicate email entries.
+	 */
+	function convertRecipientStringToArray($string) {
+		
+		// Stores unique email addresses to prevent duplicates
+		$seen = [];
+		
+		// Output structure
+		$log = ["result" => [], "disqualified_recipients" => []];
+
+		// Split input string into individual recipients using semicolon as delimiter
+		foreach (explode(";", $string) as $part) {
+			
+			// Split email and name using a comma (only the first comma matters)
+			$split = array_map('trim', explode(",", $part, 2));
+
+			// Extract email (always required)
+			$email = $split[0] ?? null;
+			
+			// Extract name (defaults to email if missing)
+			$name = $split[1] ?? $email;
+
+			// Validate email format
+			if ($email && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+				
+				// Ensure unique email addresses
+				if (!isset($seen[$email])) {
+					$log["result"][] = [$email, $name];
+					$seen[$email] = true;
+				}
+			} else {
+				// Store invalid or duplicate emails in log
+				$log["disqualified_recipients"][] = trim($part);
+			}
+		}
+
+		return $log;
+	}	
+	
+}
